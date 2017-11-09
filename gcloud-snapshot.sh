@@ -24,6 +24,13 @@ usage() {
   echo -e "    -d    Number of days to keep snapshots.  Snapshots older than this number deleted."
   echo -e "          Default if not set: 7 [OPTIONAL]"
   echo -e "\n"
+  echo -e "    -p    The project which the server exists under."
+  echo -e "          Default if not set: "" [OPTIONAL]"
+  echo -e "\n"
+  echo -e "    -a    The account to use for performing the backups"
+  echo -e "          Default if not set: "" [OPTIONAL]"
+  echo -e "\n"
+  
   exit 1
 }
 
@@ -34,12 +41,17 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:" o; do
+    while getopts "d:p:a:" o; do
       case "${o}" in
         d)
           opt_d=${OPTARG}
           ;;
-
+        p)
+          opt_p=${OPTARG}
+          ;;
+        a)
+          opt_a=${OPTARG}
+          ;;
         *)
           usage
           ;;
@@ -47,13 +59,36 @@ setScriptOptions()
     done
     shift $((OPTIND-1))
 
+    if [[ -n $opt_p ]];then
+      PROJECT_ID=$opt_p
+    else
+      PROJECT_ID=""
+    fi
+
+    if [[ -n $opt_a ]];then
+      ACCOUNT_ID=$opt_a
+    else
+      ACCOUNT_ID=""
+    fi
+
     if [[ -n $opt_d ]];then
       OLDER_THAN=$opt_d
     else
       OLDER_THAN=7
     fi
+    
+    DEFAULT_GCLOUD_ARGS=""
+    
+    if [ ! -z "$PROJECT_ID" ]; then
+      echo "doing project id echo \"$PROJECT_ID\""  
+      DEFAULT_GCLOUD_ARGS="$DEFAULT_GCLOUD_ARGS --project $PROJECT_ID"
+    fi
+  
+    if [ ! -z "$ACCOUNT_ID" ]; then
+      echo "doing account id echo \"$ACCOUNT_ID\""
+      DEFAULT_GCLOUD_ARGS="$DEFAULT_GCLOUD_ARGS --account $ACCOUNT_ID"
+    fi
 }
-
 
 #
 # RETURNS DEVICE NAME
@@ -62,7 +97,8 @@ setScriptOptions()
 getDeviceName()
 {
     local vm_name="$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/name" -H "Metadata-Flavor: Google")"
-    local device_name="$(gcloud compute disks list --filter="name=('${vm_name}')" --uri)"
+
+    local device_name="$(gcloud compute disks list --filter="name=('${vm_name}')" --uri $DEFAULT_GCLOUD_ARGS)"
 
     # strip device name out of response
     echo -e "${device_name##*/}"
@@ -136,7 +172,7 @@ createSnapshotName()
 
 createSnapshot()
 {
-    echo -e "$(gcloud compute disks snapshot $1 --snapshot-names $2 --zone $3)"
+    echo -e "$(gcloud compute disks snapshot $1 --snapshot-names $2 --zone $3 $DEFAULT_GCLOUD_ARGS)"
 }
 
 
@@ -153,7 +189,7 @@ getSnapshots()
     SNAPSHOTS=()
 
     # get list of snapshots from gcloud for this device
-    local gcloud_response="$(gcloud compute snapshots list --filter="name~'"$1"'" --uri)"
+    local gcloud_response="$(gcloud compute snapshots list --filter="name~'"$1"'" --uri $DEFAULT_GCLOUD_ARGS)"
 
     # loop through and get snapshot name from URI
     while read line
@@ -176,7 +212,7 @@ getSnapshots()
 
 getSnapshotCreatedDate()
 {
-    local snapshot_datetime="$(gcloud compute snapshots describe $1 | grep "creationTimestamp" | cut -d " " -f 2 | tr -d \')"
+    local snapshot_datetime="$(gcloud compute snapshots describe $1 $DEFAULT_GCLOUD_ARGS | grep "creationTimestamp" | cut -d " " -f 2 | tr -d \')"
 
     #  format date
     echo -e "$(date -d ${snapshot_datetime%?????} +%Y%m%d)"
@@ -225,7 +261,7 @@ checkSnapshotDeletion()
 
 deleteSnapshot()
 {
-    echo -e "$(gcloud compute snapshots delete $1 -q)"
+    echo -e "$(gcloud compute snapshots delete $1 -q $DEFAULT_GCLOUD_ARGS)"
 }
 
 
