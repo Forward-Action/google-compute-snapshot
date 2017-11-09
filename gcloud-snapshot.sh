@@ -97,9 +97,8 @@ setScriptOptions()
 getDeviceName()
 {
     local vm_name="$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/name" -H "Metadata-Flavor: Google")"
-    local device_name="$(gcloud compute disks list ${vm_name} --uri $DEFAULT_GCLOUD_ARGS)"
 
-    # local device_name="$(gcloud compute disks list --uri $DEFAULT_GCLOUD_ARGS)"
+    local device_name="$(gcloud compute disks list --filter="name=('${vm_name}')" --uri $DEFAULT_GCLOUD_ARGS)"
 
     # strip device name out of response
     echo -e "${device_name##*/}"
@@ -190,7 +189,7 @@ getSnapshots()
     SNAPSHOTS=()
 
     # get list of snapshots from gcloud for this device
-    local gcloud_response="$(gcloud compute snapshots list --regexp "$1" --uri $DEFAULT_GCLOUD_ARGS)"
+    local gcloud_response="$(gcloud compute snapshots list --filter="name~'"$1"'" --uri $DEFAULT_GCLOUD_ARGS)"
 
     # loop through and get snapshot name from URI
     while read line
@@ -202,9 +201,6 @@ getSnapshots()
         SNAPSHOTS+=(${snapshot})
 
     done <<< "$(echo -e "$gcloud_response")"
-
-    # print out snapshots
-    #echo -e ${SNAPSHOTS[@]}
 }
 
 
@@ -219,7 +215,10 @@ getSnapshotCreatedDate()
     local snapshot_datetime="$(gcloud compute snapshots describe $1 $DEFAULT_GCLOUD_ARGS | grep "creationTimestamp" | cut -d " " -f 2 | tr -d \')"
 
     #  format date
-    echo -e "$(date -d ${snapshot_datetime} +%Y%m%d)"
+    echo -e "$(date -d ${snapshot_datetime%?????} +%Y%m%d)"
+    
+    # Previous Method of formatting date, which caused issues with older Centos
+    #echo -e "$(date -d ${snapshot_datetime} +%Y%m%d)"
 }
 
 
@@ -313,7 +312,7 @@ deleteSnapshotsWrapper()
     DELETION_DATE=$(getSnapshotDeletionDate "${OLDER_THAN}")
 
     # get list of snapshots for regex - saved in global array
-    getSnapshots "(gcs-.*${DEVICE_ID}-.*)"
+    getSnapshots "gcs-.*${DEVICE_ID}-.*"
 
     # loop through snapshots
     for snapshot in "${SNAPSHOTS[@]}"

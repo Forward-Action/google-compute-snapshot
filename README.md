@@ -4,9 +4,6 @@ Bash script for Automatic Snapshots and Cleanup on Google Compute Engine. **Requ
 
 Inspiration (and the installation instructions) taken from AWS script [aws-ec2-ebs-automatic-snapshot-bash](https://github.com/CaseyLabs/aws-ec2-ebs-automatic-snapshot-bash)
 
-## Looking for Version 1?
-[https://github.com/jacksegal/google-compute-snapshot/releases/tag/1.0.1](https://github.com/jacksegal/google-compute-snapshot/releases/tag/1.0.1)
-
 ## How it works
 gcloud-snapshot.sh will:
 
@@ -92,7 +89,6 @@ By default snapshots will be kept for 7 days, however they can be kept for longe
 
 ## Limitations
 * Only works for the primary disk on VM
-* Only manages snapshots created by the script
 
 
 ## Downloading the script and opening in Windows?
