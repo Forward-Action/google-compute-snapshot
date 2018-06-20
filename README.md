@@ -87,6 +87,34 @@ By default snapshots will be kept for 7 days, however they can be kept for longe
        -d  Number of days to keep snapshots. Snapshots older than this number deleted.
            Default if not set: 7 [OPTIONAL]
 
+## Troubleshooting
+*Issue Title:* zone argument failure
+
+*Issue Details:*
+
+Already gave the following permission to my machine
+   * Cloud Datastore -> Enabled
+   * Compute Engine -> Read Write
+   * Storage -> Read Write
+
+However, I still got this issue:
+```
+user@instance-gc:/opt/google-compute-snapshot$ ./gcloud-snapshot.sh
+2018-05-03 20:34:25: Start of Script
+2018-05-03 20:34:25: Start of createSnapshotWrapper
+usage: gcloud compute disks snapshot  DISK_NAME [DISK_NAME ...] [optional flags]
+ERROR: (gcloud.compute.disks.snapshot) argument --zone: expected one argument
+2018-05-03 20:34:26: Start of deleteSnapshotsWrapper
+2018-05-03 20:34:27: End of Script
+```
+
+*Possible Fix:*
+
+Try updating your gcloud:
+```
+user@instance-gc:~$ gcloud components update
+```
+
 ## License
 
 MIT License
