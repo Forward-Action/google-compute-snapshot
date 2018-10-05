@@ -28,6 +28,7 @@ usage() {
     echo -e "          host."
     echo -e "    -z    Instance zone. If empty, uses the zone of the calling host."
     echo -e "    -p    Prefix to be used for naming snapshots, default to 'gcs'"
+    echo -e "    -a    Service Account to use. If empty, it uses the gcloud default."
     echo -e "\n"
     exit 1
 }
@@ -55,6 +56,8 @@ setScriptOptions()
                 ;;
             p)
                 opt_p=${OPTARG}
+                ;;
+            a)  opt_a=${OPTARG}
                 ;;
             *)
                 usage
@@ -92,6 +95,12 @@ setScriptOptions()
     else
         PREFIX="gcs"
     fi
+
+    if [[ -n $opt_a ]];then
+        OPT_INSTANCE_SERVICE_ACCOUNT="--account $opt_a"
+    else
+        OPT_INSTANCE_SERVICE_ACCOUNT=""
+    fi
 }
 
 
@@ -122,7 +131,7 @@ getInstanceId()
     if [[ -z "$OPT_INSTANCE_NAME" ]];then    # no typo: only when querying for the calling machine get the real instance ID
         echo -e "$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/id" -H "Metadata-Flavor: Google")"
     else
-        echo -e "$(gcloud -q compute instances describe $OPT_INSTANCE_NAME --zone=$INSTANCE_ZONE --format='value(id)')"
+        echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT -q compute instances describe $OPT_INSTANCE_NAME --zone=$INSTANCE_ZONE --format='value(id)')"
     fi
 }
 
@@ -152,7 +161,7 @@ getInstanceZone()
 
 getDeviceList()
 {
-    echo -e "$(gcloud compute disks list --filter "users~instances/$1\$ $LABEL_CLAUSE" --format='value(name)')"
+    echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute disks list --filter "users~instances/$1\$ $LABEL_CLAUSE" --format='value(name)')"
 }
 
 
@@ -197,7 +206,7 @@ createSnapshotName()
 
 createSnapshot()
 {
-    echo -e "$(gcloud compute disks snapshot $1 --snapshot-names $2 --zone $3)"
+    echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3)"
 }
 
 
@@ -214,7 +223,7 @@ getSnapshotsForDeletion()
     SNAPSHOTS=()
 
     # get list of snapshots from gcloud for this device
-    local gcloud_response="$(gcloud compute snapshots list --filter="name~'"$1"' AND creationTimestamp<'$2'" --uri)"
+    local gcloud_response="$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute snapshots list --filter="name~'"$1"' AND creationTimestamp<'$2'" --uri)"
 
     # loop through and get snapshot name from URI
     while read line
@@ -249,7 +258,7 @@ getSnapshotDeletionDate()
 
 deleteSnapshot()
 {
-    echo -e "$(gcloud compute snapshots delete $1 -q)"
+    echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute snapshots delete $1 -q)"
 }
 
 
