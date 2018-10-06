@@ -80,6 +80,13 @@ By default, the zone of the calling instance is used. To change this behaviour:
 
     Note: Even if an instance is named with `-i`, the zone of the calling instance is used
 
+### Snapshot names
+By default, snapshots are created with names in the format of `prefix-diskName-instanceId-unixTimestamp`. To give a custom prefix:
+
+    ./gcloud-compute-snapshot.sh [-p <prefix>]
+
+    Note: Snapshot names are limited to 62 characters.
+
 ## Automation
 **Setup CRON**: You should then setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
