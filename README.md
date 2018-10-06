@@ -73,6 +73,13 @@ By default, all the disks attached to the calling instance will be snapshotted. 
 
     Note: The calling instance (rather than the named instance) needs to have the correct gcloud permissions
 
+### Choosing zone
+By default, the zone of the calling instance is used. To change this behaviour:
+
+    ./gcloud-compute-snapshot.sh [-z <zone>]
+
+    Note: Even if an instance is named with `-i`, the zone of the calling instance is used
+
 ## Automation
 **Setup CRON**: You should then setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
