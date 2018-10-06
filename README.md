@@ -39,6 +39,33 @@ sudo mv gcloud-snapshot.sh /opt/google-compute-snapshot/
 sudo /opt/google-compute-snapshot/gcloud-snapshot.sh
 ```
 
+## Snapshot Retention
+By default snapshots will be kept for 7 days, however they can be kept for longer / shorter, by using the the -d flag:
+
+    Usage: ./snapshot.sh [-d <days>]
+    
+    Options:
+    
+       -d  Number of days to keep snapshots. Snapshots older than this number deleted.
+           Default if not set: 7 [OPTIONAL]
+
+## Matching on specific disks
+By default, snapshots will be created for all attached disks.  To only snapshot specific disks (ie. data volumes while skipping boot volumes), use the -t flag:
+
+    Usage: ./snapshot.sh [-t <label>]
+    
+    Options:
+    
+       -t  Only back up disks that have this specified label with value set to 'true'
+
+Example: If you set the label to "auto_snapshot", only disks matching this key/value pair will be snapshotted:
+
+    auto_snapshot=true
+
+This also allows you to bake snapshotting into your Google images by setting a cron job with a label on every image you create, and then you can set a label on the volumes you want to
+snapshot in your infrastructure management tool (Terraform) to selectively snapshot them.
+
+## Automation
 **Setup CRON**: You should then setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
 0 5 * * * root /opt/google-compute-snapshot/gcloud-snapshot.sh >> /var/log/cron/snapshot.log 2>&1
