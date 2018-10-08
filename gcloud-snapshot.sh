@@ -40,7 +40,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:t:i:z:p:" o; do
+    while getopts ":d:t:i:z:p:a:" o; do
         case "${o}" in
             d)
                 opt_d=${OPTARG}
@@ -57,7 +57,8 @@ setScriptOptions()
             p)
                 opt_p=${OPTARG}
                 ;;
-            a)  opt_a=${OPTARG}
+            a)  
+                opt_a=${OPTARG}
                 ;;
             *)
                 usage
