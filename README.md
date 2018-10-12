@@ -19,7 +19,7 @@ gcloud-snapshot.sh will:
 
 	[	http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399](http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399)
 * The version of gcloud is up to date: `gcloud components update` 
-* If you're getting the error "Insufficient Permission" you may need to authenticate with: `sudo gcloud auth login`
+* You are authenticated with gcloud - normally this happens automatically, but some users get the error "Insufficient Permission" and need to authenticate: `sudo gcloud auth login`
 
 ## Installation
 
