@@ -39,6 +39,8 @@ sudo mv gcloud-snapshot.sh /opt/google-compute-snapshot/
 sudo /opt/google-compute-snapshot/gcloud-snapshot.sh
 ```
 
+## Automation
+
 **Setup CRON**: You should then setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
 0 5 * * * root /opt/google-compute-snapshot/gcloud-snapshot.sh >> /var/log/cron/snapshot.log 2>&1
@@ -78,17 +80,38 @@ sudo nano /etc/logrotate.d/cron
 }
 ```
 
-## Snapshot Retention
+## Usage Options
+
+```
+Usage:
+
+./gcloud-snapshot.sh [-d <days>] [-t <label_name>] [-T <gcloud_filter_expression>] [-i <instance_name>] [-z <instance_zone>] [-p <prefix>] [-a <service_account>]
+
+Options:
+
+    -d    Number of days to keep snapshots.  Snapshots older than this number deleted.
+          Default if not set: 7 [OPTIONAL]
+    -t    Only back up disks that have this specified label with value set to 'true'.
+    -T    Only back up disks returned from querying with this filter. Uses gcloud filter expressions
+          If both -t and -T are used, both terms are joined by the operator AND
+    -i    Instance name to create backups for. If empty, makes backup for the calling
+          host.
+    -z    Instance zone. If empty, uses the zone of the calling host.
+    -p    Prefix to be used for naming snapshots, default to 'gcs'
+    -a    Service Account to use. If empty, it uses the gcloud default.
+```
+
+### Snapshot Retention
 By default snapshots will be kept for 7 days, however they can be kept for longer / shorter, by using the the -d flag:
 
-    Usage: ./gcloud-snapshot.sh [-d <days>]
+    Usage: ./snapshot.sh [-d <days>]
     
     Options:
     
        -d  Number of days to keep snapshots. Snapshots older than this number deleted.
            Default if not set: 7 [OPTIONAL]
 
-## Matching on specific disks
+### Matching on specific disks
 By default, snapshots will be created for all attached disks.  To only snapshot specific disks (ie. data volumes while skipping boot volumes), use the -t flag:
 
     Usage: ./gcloud-snapshot.sh [-t <label>]
@@ -113,8 +136,29 @@ Example: `./gcloud-compute-snapshot.sh -t auto_snapshot -T "sizeGb = 10 AND name
 
     --format="labels.auto_snapshot=true AND sizeGb = 10 AND name: ubuntu"
 
-This also allows you to bake snapshotting into your Google images by setting a cron job with a label on every image you create, and then you can set a label on the volumes you want to
-snapshot in your infrastructure management tool (Terraform) to selectively snapshot them.
+This also allows you to bake snapshotting into your Google images by setting a cron job with a label on every image you create, and then you can set a label on the volumes you want to snapshot in your infrastructure management tool (Terraform) to selectively snapshot them.
+
+### Choosing instance for the attached disks
+By default, all the disks attached to the calling instance will be snapshotted. To change this behaviour:
+
+    ./gcloud-compute-snapshot.sh [-i <instance_name]
+
+    Note: The calling instance (rather than the named instance) needs to have the correct gcloud permissions
+
+### Choosing zone
+By default, the zone of the calling instance is used. To change this behaviour:
+
+    ./gcloud-compute-snapshot.sh [-z <zone>]
+
+    Note: Even if an instance is named with `-i`, the zone of the calling instance is used
+
+### Snapshot names
+By default, snapshots are created with names in the format of `prefix-diskName-instanceId-unixTimestamp`. To give a custom prefix:
+
+    ./gcloud-compute-snapshot.sh [-p <prefix>]
+
+    Note: Snapshot names are limited to 62 characters.
+
 
 ## License
 
