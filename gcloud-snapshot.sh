@@ -86,6 +86,8 @@ setScriptOptions()
 
     if [[ -n $opt_T ]];then
         FILTER_CLAUSE="$LABEL_CLAUSE AND $opt_T"
+    else
+        FILTER_CLAUSE=$LABEL_CLAUSE
     fi
 
     if [[ -n $opt_i ]];then

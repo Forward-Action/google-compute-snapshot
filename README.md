@@ -81,7 +81,7 @@ sudo nano /etc/logrotate.d/cron
 ## Snapshot Retention
 By default snapshots will be kept for 7 days, however they can be kept for longer / shorter, by using the the -d flag:
 
-    Usage: ./snapshot.sh [-d <days>]
+    Usage: ./gcloud-snapshot.sh [-d <days>]
     
     Options:
     
@@ -91,7 +91,7 @@ By default snapshots will be kept for 7 days, however they can be kept for longe
 ## Matching on specific disks
 By default, snapshots will be created for all attached disks.  To only snapshot specific disks (ie. data volumes while skipping boot volumes), use the -t flag:
 
-    Usage: ./snapshot.sh [-t <label>]
+    Usage: ./gcloud-snapshot.sh [-t <label>]
     
     Options:
     
