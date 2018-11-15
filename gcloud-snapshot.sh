@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+#
+# Take snapshots of Google Compute Engine disks
+
 export PATH=$PATH:/usr/local/bin/:/usr/bin
-
-
 
 
 ###############################
@@ -15,42 +16,54 @@ export PATH=$PATH:/usr/local/bin/:/usr/bin
 
 
 #
-# DOCUMENTS ARGUMENTS
+# DOCUMENT ARGUMENTS
 #
 
 usage() {
-    echo -e "\nUsage: $0 [-d <days>] [-t <label_name>] [-i <instance_name>] [-i <instance_zone>]" 1>&2
+    echo -e "\nUsage: $0 [-d <days>] [-r <remote_instances>] [-f <gcloud_filter_expression>] [-p <prefix>] [-a <service_account>] [-n <dry_run>]" 1>&2
     echo -e "\nOptions:\n"
     echo -e "    -d    Number of days to keep snapshots.  Snapshots older than this number deleted."
     echo -e "          Default if not set: 7 [OPTIONAL]"
-    echo -e "    -t    Only back up disks that have this specified label with value set to 'true'."
-    echo -e "    -i    Instance name to create backups for. If empty, makes backup for the calling"
-    echo -e "          host."
-    echo -e "    -z    Instance zone. If empty, uses the zone of the calling host."
+    echo -e "    -r    Backup remote instances - takes snapshots of all disks calling instance has"
+    echo -e "          access to [OPTIONAL]."
+    echo -e "    -f    gcloud filter expression to query disk selection [OPTIONAL]"
+    echo -e "    -p    Prefix to be used for naming snapshots."
+    echo -e "          Max character length: 20"
+    echo -e "          Default if not set: 'gcs' [OPTIONAL]"
+    echo -e "    -a    Service Account to use."
+    echo -e "          Blank if not set [OPTIONAL]"
+    echo -e "    -n    Dry run: causes script to print debug variables and doesn't execute any"
+    echo -e "          create / delete commands [OPTIONAL]"
     echo -e "\n"
     exit 1
 }
 
 
 #
-# GETS SCRIPT OPTIONS AND SETS GLOBAL VAR $OLDER_THAN
+# GET SCRIPT OPTIONS AND SETS GLOBAL VAR
 #
 
 setScriptOptions()
 {
-    while getopts ":d:t:i:z:" o; do
-        case "${o}" in
+    while getopts ":d:rf:p:a:n" opt; do
+        case $opt in
             d)
                 opt_d=${OPTARG}
                 ;;
-            t)
-                opt_t=${OPTARG}
+            r)
+                opt_r=true
                 ;;
-            i)
-                opt_i=${OPTARG}
+            f)
+                opt_f=${OPTARG}
                 ;;
-            z)
-                opt_z=${OPTARG}
+            p)
+                opt_p=${OPTARG}
+                ;;
+            a)
+                opt_a=${OPTARG}
+                ;;
+            n)
+                opt_n=true
                 ;;
             *)
                 usage
@@ -59,77 +72,76 @@ setScriptOptions()
     done
     shift $((OPTIND-1))
 
-    if [[ -n $opt_d ]];then
+    # Number of days to keep snapshots
+    if [[ -n $opt_d ]]; then
         OLDER_THAN=$opt_d
     else
         OLDER_THAN=7
     fi
 
-    if [[ -n $opt_t ]];then
-        LABEL_CLAUSE="AND labels.$opt_t=true"
-    else
-        LABEL_CLAUSE=""
+    # Backup remote Instances
+    if [[ -n $opt_r ]]; then
+        REMOTE_CLAUSE=$opt_r
     fi
 
-    if [[ -n $opt_i ]];then
-        OPT_INSTANCE_NAME=$opt_i
+    # gcloud Filter
+    if [[ -n $opt_f ]]; then
+        FILTER_CLAUSE=$opt_f
     else
-        OPT_INSTANCE_NAME=""
+        FILTER_CLAUSE=""
     fi
 
-    if [[ -n $opt_z ]];then
-        OPT_INSTANCE_ZONE=$opt_z
+    # Snapshot Prefix
+    if [[ -n $opt_p ]]; then
+        # check if prefix is more than 20 chars
+        if [ ${#opt_p} -ge 20 ]; then
+            PREFIX=${opt_p:0:20}
+        else
+            PREFIX=$opt_p
+        fi
     else
-        OPT_INSTANCE_ZONE=""
+        PREFIX="gcs"
+    fi
+
+    # gcloud Service Account
+    if [[ -n $opt_a ]]; then
+        OPT_ACCOUNT="--account $opt_a"
+    else
+        OPT_ACCOUNT=""
+    fi
+
+    # Dry run
+    if [[ -n $opt_n ]]; then
+        DRY_RUN=$opt_n
+    fi
+
+    # Debug - print variables
+    if [ "$DRY_RUN" = true ]; then
+        printDebug "OLDER_THAN=${OLDER_THAN}"
+        printDebug "REMOTE_CLAUSE=${REMOTE_CLAUSE}"
+        printDebug "FILTER_CLAUSE=${FILTER_CLAUSE}"
+        printDebug "PREFIX=${PREFIX}"
+        printDebug "OPT_ACCOUNT=${OPT_ACCOUNT}"
+        printDebug "DRY_RUN=${DRY_RUN}"
     fi
 }
 
 
 #
-# RETURNS INSTANCE NAME
+# RETURN INSTANCE NAME
 #
 
 getInstanceName()
 {
-    if [[ -z "$OPT_INSTANCE_NAME" ]];then
+    if [ "$REMOTE_CLAUSE" = true ]; then
+        # return blank so that it gets disks for all instances
+        echo -e ""
+    else
         # get the name for this vm
         local instance_name="$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/hostname" -H "Metadata-Flavor: Google")"
 
         # strip out the instance name from the fullly qualified domain name the google returns
         echo -e "${instance_name%%.*}"
-    else
-        echo $OPT_INSTANCE_NAME
-    fi
-}
-
-
-#
-# RETURNS INSTANCE ID
-#
-
-getInstanceId()
-{
-    if [[ -z "$OPT_INSTANCE_NAME" ]];then    # no typo: only when querying for the calling machine get the real instance ID
-        echo -e "$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/id" -H "Metadata-Flavor: Google")"
-    else
-        echo -e "$(gcloud -q compute instances describe $OPT_INSTANCE_NAME --zone=$INSTANCE_ZONE --format='value(id)')"
-    fi
-}
-
-
-#
-# RETURNS INSTANCE ZONE
-#
-
-getInstanceZone()
-{
-    if [[ -z "$OPT_INSTANCE_ZONE" ]];then
-        local instance_zone="$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/zone" -H "Metadata-Flavor: Google")"
-
-        # strip instance zone out of response
-        echo -e "${instance_zone##*/}"
-    else
-        echo $OPT_INSTANCE_ZONE
     fi
 }
 
@@ -142,18 +154,20 @@ getInstanceZone()
 
 getDeviceList()
 {
-    echo -e "$(gcloud compute disks list --filter "users~instances/$1\$ $LABEL_CLAUSE" --format='value(name)')"
+    echo -e "$(gcloud $OPT_ACCOUNT compute disks list $1 --filter "$FILTER_CLAUSE" --format='value(name,zone,id)')"
 }
 
 
 #
 # RETURNS SNAPSHOT NAME
 #
+# input: ${PREFIX} ${DEVICE_NAME} ${DATE_TIME}
+#
 
 createSnapshotName()
 {
     # create snapshot name
-    local name="gcs-$1-$2-$3"
+    local name="$1-$2-$3"
 
     # google compute snapshot name cannot be longer than 62 characters
     local name_max_len=62
@@ -161,17 +175,17 @@ createSnapshotName()
     # check if snapshot name is longer than max length
     if [ ${#name} -ge ${name_max_len} ]; then
 
-        # work out how many characters we require - prefix + device id + timestamp
-        local req_chars="gcs--$2-$3"
+        # work out how many characters we require - prefix + timestamp
+        local req_chars="$1--$3"
 
         # work out how many characters that leaves us for the device name
         local device_name_len=`expr ${name_max_len} - ${#req_chars}`
 
         # shorten the device name
-        local device_name=${1:0:device_name_len}
+        local device_name=${2:0:device_name_len}
 
         # create new (acceptable) snapshot name
-        name="gcs-${device_name}-$2-$3" ;
+        name="$1-${device_name}-$3" ;
 
     fi
 
@@ -182,58 +196,16 @@ createSnapshotName()
 #
 # CREATES SNAPSHOT AND RETURNS OUTPUT
 #
-# input: ${DEVICE_NAME}, ${SNAPSHOT_NAME}, ${INSTANCE_ZONE}
+# input: ${DEVICE_NAME}, ${SNAPSHOT_NAME}, ${DEVICE_ZONE}
 #
 
 createSnapshot()
 {
-    echo -e "$(gcloud compute disks snapshot $1 --snapshot-names $2 --zone $3)"
-}
-
-
-#
-# GETS LIST OF SNAPSHOTS AND SETS GLOBAL ARRAY $SNAPSHOTS
-#
-# input: ${SNAPSHOT_REGEX}
-# example usage: getSnapshots "(gcs-.*${INSTANCE_ID}-.*)"
-#
-
-getSnapshots()
-{
-    # create empty array
-    SNAPSHOTS=()
-
-    # get list of snapshots from gcloud for this device
-    local gcloud_response="$(gcloud compute snapshots list --filter="name~'"$1"'" --uri)"
-
-    # loop through and get snapshot name from URI
-    while read line
-    do
-        # grab snapshot name from full URI
-        snapshot="${line##*/}"
-
-        # add snapshot to global array
-        SNAPSHOTS+=(${snapshot})
-
-    done <<< "$(echo -e "$gcloud_response")"
-}
-
-
-#
-# RETURNS SNAPSHOT CREATED DATE
-#
-# input: ${SNAPSHOT_NAME}
-#
-
-getSnapshotCreatedDate()
-{
-    local snapshot_datetime="$(gcloud compute snapshots describe $1 | grep "creationTimestamp" | cut -d " " -f 2 | tr -d \')"
-
-    #  format date
-    echo -e "$(date -d ${snapshot_datetime%?????} +%Y%m%d)"
-
-    # Previous Method of formatting date, which caused issues with older Centos
-    #echo -e "$(date -d ${snapshot_datetime} +%Y%m%d)"
+    if [ "$DRY_RUN" = true ]; then
+        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3"
+    else
+        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3)
+    fi
 }
 
 
@@ -250,21 +222,35 @@ getSnapshotDeletionDate()
 
 
 #
-# RETURNS ANSWER FOR WHETHER SNAPSHOT SHOULD BE DELETED
+# DELETE SNAPSHOTS FOR DISK
 #
-# input: ${DELETION_DATE}, ${SNAPSHOT_CREATED_DATE}
+# input: ${SNAPSHOT_PREFIX} ${DELETION_DATE} ${DEVICE_ID}
 #
 
-checkSnapshotDeletion()
+deleteSnapshots()
 {
-    if [ $1 -ge $2 ]
+    # create empty array
+    local snapshots=()
 
-        then
-            echo -e "1"
-        else
-            echo -e "2"
+    # get list of snapshots from gcloud for this device
+    local gcloud_response="$(gcloud $OPT_ACCOUNT compute snapshots list --filter="name~'"$1"' AND creationTimestamp<'$2' AND sourceDiskId='$3'" --uri)"
 
-    fi
+    # loop through and get snapshot name from URI
+    while read line
+    do
+        # grab snapshot name from full URI
+        snapshot="${line##*/}"
+
+        # add snapshot to global array
+        snapshots+=(${snapshot})
+
+    done <<< "$(echo -e "$gcloud_response")"
+
+    # loop through array
+    for snapshot in "${snapshots[@]}"; do
+        # delete snapshot
+        deleteSnapshot ${snapshot}
+    done
 }
 
 
@@ -276,103 +262,103 @@ checkSnapshotDeletion()
 
 deleteSnapshot()
 {
-    echo -e "$(gcloud compute snapshots delete $1 -q)"
+    if [ "$DRY_RUN" = true ]; then
+        printCmd "gcloud ${OPT_ACCOUNT} compute snapshots delete $1 -q"
+    else
+        $(gcloud $OPT_ACCOUNT compute snapshots delete $1 -q)
+    fi
 }
 
 
 logTime()
 {
     local datetime="$(date +"%Y-%m-%d %T")"
-    echo -e "$datetime: $1"
+    echo -e "[$datetime]: $1"
+}
+
+printDebug()
+{
+    echo -e "$(tput setab 4)[DEBUG]:$(tput sgr 0) $(tput setaf 4)${1}$(tput sgr 0)"
+}
+
+printError()
+{
+    echo -e "$(tput setab 1)[ERROR]:$(tput sgr 0) $(tput setaf 1)${1}$(tput sgr 0)"
+}
+
+printCmd()
+{
+    echo -e "$(tput setab 3)$(tput setaf 0)[CMD]:$(tput sgr 0) $(tput setaf 3)${1}$(tput sgr 0)"
 }
 
 
-#######################
-##                   ##
-## WRAPPER FUNCTIONS ##
-##                   ##
-#######################
+######################
+##                  ##
+## WRAPPER FUNCTION ##
+##                  ##
+######################
 
 
-createSnapshotWrapper()
+main()
 {
     # log time
-    logTime "Start of createSnapshotWrapper"
+    logTime "Start of google-compute-snapshot"
 
-    # get date time
+    # set script options
+    setScriptOptions "$@"
+
+    # get current datetime
     DATE_TIME="$(date "+%s")"
 
-    # get the instance name
-    INSTANCE_NAME=$(getInstanceName)
-
-    # get the instance zone
-    INSTANCE_ZONE=$(getInstanceZone)
-
-    # get the device id
-    INSTANCE_ID=$(getInstanceId)
-
-    # get a list of all the devices
-    DEVICE_LIST=$(getDeviceList ${INSTANCE_NAME})
-
-    # create the snapshots
-    echo "${DEVICE_LIST}" | while read DEVICE_NAME
-    do
-        # create snapshot name
-        SNAPSHOT_NAME=$(createSnapshotName ${DEVICE_NAME} ${INSTANCE_ID} ${DATE_TIME})
-
-        # create the snapshot
-        OUTPUT_SNAPSHOT_CREATION=$(createSnapshot ${DEVICE_NAME} ${SNAPSHOT_NAME} ${INSTANCE_ZONE})
-    done
-}
-
-deleteSnapshotsWrapper()
-{
-    # log time
-    logTime "Start of deleteSnapshotsWrapper"
-
-    # get the deletion date for snapshots
+    # get deletion date for existing snapshots
     DELETION_DATE=$(getSnapshotDeletionDate "${OLDER_THAN}")
 
-    # get list of snapshots for regex - saved in global array
-    getSnapshots "gcs-.*${INSTANCE_ID}-.*"
+    # get local instance name (blank if using remote instances)
+    INSTANCE_NAME=$(getInstanceName)
 
-    # loop through snapshots
-    for snapshot in "${SNAPSHOTS[@]}"
-    do
-        # get created date for snapshot
-        SNAPSHOT_CREATED_DATE=$(getSnapshotCreatedDate ${snapshot})
+    # dry run: debug output
+    if [ "$DRY_RUN" = true ]; then
+        printDebug "DATE_TIME=${DATE_TIME}"
+        printDebug "DELETION_DATE=${DELETION_DATE}"
+        printDebug "INSTANCE_NAME=${INSTANCE_NAME}"
+    fi
 
-        # check if snapshot needs to be deleted
-        DELETION_CHECK=$(checkSnapshotDeletion ${DELETION_DATE} ${SNAPSHOT_CREATED_DATE})
+    # get list of all the disks that match filter
+    DEVICE_LIST=$(getDeviceList ${INSTANCE_NAME})
 
-        # delete snapshot
-        if [ "${DELETION_CHECK}" -eq "1" ]; then
-            OUTPUT_SNAPSHOT_DELETION=$(deleteSnapshot ${snapshot})
-        fi
+    # check if any disks were found
+    if [[ -z $DEVICE_LIST ]]; then
+        printError "No disks were found - please check your script options / account permissions."
+        exit 1
+    fi
 
+    # dry run: debug disk output
+    if [ "$DRY_RUN" = true ]; then
+        printDebug "DEVICE_LIST=${DEVICE_LIST}"
+    fi
+
+    # loop through the devices
+    echo "${DEVICE_LIST}" | while read device_name device_zone device_id; do
+        logTime "Handling Snapshots for ${device_name}"
+
+        # build snapshot name
+        local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
+
+        # create the snapshot
+        createSnapshot ${device_name} ${snapshot_name} ${device_zone}
+
+        # delete snapshots for this disk that were created older than DELETION_DATE
+        deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
     done
+
+    logTime "End of google-compute-snapshot"
 }
 
 
+####################
+##                ##
+## EXECUTE SCRIPT ##
+##                ##
+####################
 
-
-##########################
-##                      ##
-## RUN SCRIPT FUNCTIONS ##
-##                      ##
-##########################
-
-# log time
-logTime "Start of Script"
-
-# set options from script input / default value
-setScriptOptions "$@"
-
-# create snapshot
-createSnapshotWrapper
-
-# delete snapshots older than 'x' days
-deleteSnapshotsWrapper
-
-# log time
-logTime "End of Script"
+main "$@"
