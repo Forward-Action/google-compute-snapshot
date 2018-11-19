@@ -72,6 +72,8 @@ Options:
           Default if not set: 'gcs' [OPTIONAL]
     -a    Service Account to use. 
           Blank if not set [OPTIONAL]
+    -j    Project ID to use.
+          Blank if not set [OPTIONAL]
     -n    Dry run: causes script to print debug variables and doesn't execute any 
           create / delete commands [OPTIONAL]
 ```
@@ -153,6 +155,20 @@ By default snapshots are created with the default gcloud service account. To use
 For example:
 
     ./gcloud-snapshot.sh -a "my-service-account@test9q.iam.gserviceaccount.com"
+
+### Project ID
+By default snapshots are created with the default gcloud project id. To use a custom project id use the -j flag:
+
+    Usage: ./gcloud-snapshot.sh [-j <project_id>]
+    
+    Options:
+    
+       -j  Project ID to use.
+           Blank if not set [OPTIONAL]
+
+For example:
+
+    ./gcloud-snapshot.sh -j "my-test-project"
 
 ### Dry Run
 The script can be run in dry run mode, which doesn't execute any create / delete commands, and prints out debug information.
