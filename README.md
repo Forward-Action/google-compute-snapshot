@@ -78,6 +78,22 @@ Options:
           create / delete commands [OPTIONAL]
 ```
 
+## Docker Support
+
+This project has a `Dockerfile` and can therefore be run as a container in a VM, or in a Kubernetes cluster.
+In this context, it will be run with the `-r` option to back up all disks the container has access to. The
+intended usage is to run the container periodically as a Kubernetes cron task.
+
+However it is also possible to set the environment variables `DAEMON` which will make the container run
+continually and take snapshots at intervals. By default the interval is 21600 seconds (6 hours) but can
+be overridden by setting the environment variable `SLEEP`.
+
+You set environment variable `FILTER` to set a filter condition as documented in
+[Matching on specific disks](#matching-on-specific-disks). Otherwise all disks are snapshotted.
+
+At the time of writing, this image is available on [Docker Hub](https://hub.docker.com/r/djjudas21/google-compute-snapshot/)
+as `djjudas21/google-compute-snapshot`.
+
 ## Usage Examples
 
 ### Snapshot Retention
