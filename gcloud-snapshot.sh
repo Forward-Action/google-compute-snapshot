@@ -376,12 +376,12 @@ main()
 
         # build snapshot name
         local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
+        
+        # delete snapshots for this disk that were created older than DELETION_DATE
+        deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
 
         # create the snapshot
         createSnapshot ${device_name} ${snapshot_name} ${device_zone}
-
-        # delete snapshots for this disk that were created older than DELETION_DATE
-        deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
     done
 
     logTime "End of google-compute-snapshot"
