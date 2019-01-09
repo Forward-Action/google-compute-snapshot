@@ -91,8 +91,8 @@ be overridden by setting the environment variable `SLEEP`.
 You set environment variable `FILTER` to set a filter condition as documented in
 [Matching on specific disks](#matching-on-specific-disks). Otherwise all disks are snapshotted.
 
-At the time of writing, this image is available on [Docker Hub](https://hub.docker.com/r/djjudas21/google-compute-snapshot/)
-as `djjudas21/google-compute-snapshot`.
+At the time of writing, this image is available on [Docker Hub](https://hub.docker.com/r/jacksegal/google-compute-snapshot/)
+as `jacksegal/google-compute-snapshot`.
 
 ## Usage Examples
 
