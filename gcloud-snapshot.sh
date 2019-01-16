@@ -34,6 +34,7 @@ usage() {
     echo -e "          Blank if not set [OPTIONAL]"
     echo -e "    -j    Project ID to use."
     echo -e "          Blank if not set [OPTIONAL]"
+    echo -e "    -b    Script to run before creating the snapshot."
     echo -e "    -n    Dry run: causes script to print debug variables and doesn't execute any"
     echo -e "          create / delete commands [OPTIONAL]"
     echo -e "\n"
@@ -47,7 +48,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:rf:p:a:j:n" opt; do
+    while getopts ":d:rf:p:a:j:b:n" opt; do
         case $opt in
             d)
                 opt_d=${OPTARG}
@@ -66,6 +67,9 @@ setScriptOptions()
                 ;;
             j)
                 opt_j=${OPTARG}
+                ;;
+            b)
+                opt_b=${OPTARG}
                 ;;
             n)
                 opt_n=true
@@ -122,6 +126,13 @@ setScriptOptions()
         OPT_PROJECT=""
     fi
 
+    # Before execution script
+    if [[ -n $opt_b ]]; then
+        OPT_PRERUN_SCRIPT="$opt_b"
+    else
+        OPT_PRERUN_SCRIPT=""
+    fi
+
     # Dry run
     if [[ -n $opt_n ]]; then
         DRY_RUN=$opt_n
@@ -135,6 +146,7 @@ setScriptOptions()
         printDebug "PREFIX=${PREFIX}"
         printDebug "OPT_ACCOUNT=${OPT_ACCOUNT}"
         printDebug "OPT_PROJECT=${OPT_PROJECT}"
+        printDebug "OPT_PRERUN_SCRIPT=${OPT_PRERUN_SCRIPT}"
         printDebug "DRY_RUN=${DRY_RUN}"
     fi
 }
@@ -238,6 +250,20 @@ createSnapshot()
         printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT}"
     else
         $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT})
+    fi
+}
+
+#
+# EXECUTE THE PRERUN SCRIPT
+#
+preRunScript()
+{
+    if [ "$DRY_RUN" = true ]; then
+        printCmd "Executing: ${OPT_PRERUN_SCRIPT}"
+        return 0
+    else
+        ${OPT_PRERUN_SCRIPT}
+        return $?
     fi
 }
 
@@ -368,6 +394,15 @@ main()
     # dry run: debug disk output
     if [ "$DRY_RUN" = true ]; then
         printDebug "DEVICE_LIST=${DEVICE_LIST}"
+    fi
+
+    if [[ ! -z $OPT_PRERUN_SCRIPT ]]; then
+        logTime "Executing pre-run script: ${OPT_PRERUN_SCRIPT}"
+        preRunScript
+        if [ $? != 0 ]; then
+            printError "pre-run script (${OPT_PRERUN_SCRIPT}) failed with error $?. Aborting snapshot."
+            exit
+        fi
     fi
 
     # loop through the devices
