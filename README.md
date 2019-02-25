@@ -24,7 +24,7 @@ The script has a number of **optional** usage options - for example you can:
 * `cURL` must be installed
 * The VM must have the sufficient gcloud permissions, including "compute" set to "enabled": [	http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399](http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399)
 * The version of gcloud is up to date: `gcloud components update` 
-* You are authenticated with gcloud - normally this happens automatically, but some users get the error "Insufficient Permission" and need to authenticate: `sudo gcloud auth login`
+
 
 ## Installation
 
@@ -37,6 +37,7 @@ wget https://raw.githubusercontent.com/jacksegal/google-compute-snapshot/master/
 chmod +x gcloud-snapshot.sh
 sudo mkdir -p /opt/google-compute-snapshot
 sudo mv gcloud-snapshot.sh /opt/google-compute-snapshot/
+sudo gcloud auth login
 ```
 
 **To manually test the script:**
@@ -48,10 +49,10 @@ sudo /opt/google-compute-snapshot/gcloud-snapshot.sh
 
 **Setup CRON**: You should setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
-0 5 * * * root /opt/google-compute-snapshot/gcloud-snapshot.sh > /dev/null 2>&1
+0 5 * * * sudo -u root /opt/google-compute-snapshot/gcloud-snapshot.sh > /dev/null 2>&1
 ```
 
-If you'd like to save the output of the script to a log, see [Saving output to Log]((#saving-output-to-log))
+If you'd like to save the output of the script to a log, see [Saving output to Log](#saving-output-to-log)
 
 ## Usage Options
 
