@@ -20,7 +20,7 @@ export PATH=$PATH:/usr/local/bin/:/usr/bin
 #
 
 usage() {
-    echo -e "\nUsage: $0 [-d <days>] [-r <remote_instances>] [-f <gcloud_filter_expression>] [-p <prefix>] [-a <service_account>] [-n <dry_run>]" 1>&2
+    echo -e "\nUsage: $0 [-d <days>] [-r <remote_instances>] [-f <gcloud_filter_expression>] [-p <prefix>] [-a <service_account>] [-n <dry_run>] [-j <project_id>]" 1>&2
     echo -e "\nOptions:\n"
     echo -e "    -d    Number of days to keep snapshots.  Snapshots older than this number deleted."
     echo -e "          Default if not set: 7 [OPTIONAL]"
@@ -32,6 +32,8 @@ usage() {
     echo -e "          Max character length: 20"
     echo -e "          Default if not set: 'gcs' [OPTIONAL]"
     echo -e "    -a    Service Account to use."
+    echo -e "          Blank if not set [OPTIONAL]"
+    echo -e "    -j    Project ID to use."
     echo -e "          Blank if not set [OPTIONAL]"
     echo -e "    -n    Dry run: causes script to print debug variables and doesn't execute any"
     echo -e "          create / delete commands [OPTIONAL]"
@@ -46,7 +48,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:rf:cp:a:n" opt; do
+    while getopts ":d:rf:cp:a:j:n" opt; do
         case $opt in
             d)
                 opt_d=${OPTARG}
@@ -65,6 +67,9 @@ setScriptOptions()
                 ;;
             a)
                 opt_a=${OPTARG}
+                ;;
+            j)
+                opt_j=${OPTARG}
                 ;;
             n)
                 opt_n=true
@@ -114,6 +119,13 @@ setScriptOptions()
         OPT_ACCOUNT=""
     fi
 
+    # gcloud Project
+    if [[ -n $opt_j ]]; then
+        OPT_PROJECT="--project $opt_j"
+    else
+        OPT_PROJECT=""
+    fi
+
     # Dry run
     if [[ -n $opt_n ]]; then
         DRY_RUN=$opt_n
@@ -131,6 +143,7 @@ setScriptOptions()
         printDebug "FILTER_CLAUSE=${FILTER_CLAUSE}"
         printDebug "PREFIX=${PREFIX}"
         printDebug "OPT_ACCOUNT=${OPT_ACCOUNT}"
+        printDebug "OPT_PROJECT=${OPT_PROJECT}"
         printDebug "DRY_RUN=${DRY_RUN}"
         printDebug "COPY_LABELS=${COPY_LABELS}"
     fi
@@ -164,7 +177,27 @@ getInstanceName()
 
 getDeviceList()
 {
-    echo -e "$(gcloud $OPT_ACCOUNT compute disks list $1 --filter "$FILTER_CLAUSE" --format='value(name,zone,id)')"
+    # echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute disks list --filter "users~instances/$1\$ $FILTER_CLAUSE" --format='value(name)')"
+    
+    local filter=""
+
+    # if using remote instances (-r), then no name filter is required
+    if [ "$REMOTE_CLAUSE" = true ]; then
+
+        # check if $FILTER_CLAUSE exists
+        if [[ ! -z $FILTER_CLAUSE ]]; then
+            filter="${FILTER_CLAUSE}"
+        fi
+    else
+        # check if $FILTER_CLAUSE exists
+        if [[ ! -z $FILTER_CLAUSE ]]; then
+            filter="users~instances/$1\$ AND ${FILTER_CLAUSE}"
+        else
+            filter="users~instances/$1\$"
+        fi
+    fi
+
+    echo -e "$(gcloud $OPT_ACCOUNT compute disks list --filter "${filter}" --format='value(name,zone,id)' $OPT_PROJECT)"
 }
 
 
@@ -212,9 +245,9 @@ createSnapshotName()
 createSnapshot()
 {
     if [ "$DRY_RUN" = true ]; then
-        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3"
+        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT}"
     else
-        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3)
+        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT})
     fi
 }
 
@@ -253,7 +286,7 @@ deleteSnapshots()
     local snapshots=()
 
     # get list of snapshots from gcloud for this device
-    local gcloud_response="$(gcloud $OPT_ACCOUNT compute snapshots list --filter="name~'"$1"' AND creationTimestamp<'$2' AND sourceDiskId='$3'" --uri)"
+    local gcloud_response="$(gcloud $OPT_ACCOUNT compute snapshots list --filter="name~'"$1"' AND creationTimestamp<'$2' AND sourceDiskId='$3'" --uri ${OPT_PROJECT})"
 
     # loop through and get snapshot name from URI
     while read line
@@ -283,9 +316,9 @@ deleteSnapshots()
 deleteSnapshot()
 {
     if [ "$DRY_RUN" = true ]; then
-        printCmd "gcloud ${OPT_ACCOUNT} compute snapshots delete $1 -q"
+        printCmd "gcloud ${OPT_ACCOUNT} compute snapshots delete $1 -q ${OPT_PROJECT}"
     else
-        $(gcloud $OPT_ACCOUNT compute snapshots delete $1 -q)
+        $(gcloud $OPT_ACCOUNT compute snapshots delete $1 -q ${OPT_PROJECT})
     fi
 }
 
@@ -363,10 +396,7 @@ main()
 
         # build snapshot name
         local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
-
-        # create the snapshot
-        createSnapshot ${device_name} ${snapshot_name} ${device_zone}
-
+        
         if [ "$COPY_LABELS" = true ]; then
             # Copy labels
             copyDiskLabels ${device_name} ${snapshot_name} ${device_zone}
@@ -374,6 +404,9 @@ main()
 
         # delete snapshots for this disk that were created older than DELETION_DATE
         deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
+
+        # create the snapshot
+        createSnapshot ${device_name} ${snapshot_name} ${device_zone}
     done
 
     logTime "End of google-compute-snapshot"
