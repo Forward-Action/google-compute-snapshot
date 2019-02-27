@@ -397,16 +397,17 @@ main()
         # build snapshot name
         local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
 
-        if [ "$COPY_LABELS" = true ]; then
-            # Copy labels
-            copyDiskLabels ${device_name} ${snapshot_name} ${device_zone}
-        fi
-
         # delete snapshots for this disk that were created older than DELETION_DATE
         deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
 
         # create the snapshot
         createSnapshot ${device_name} ${snapshot_name} ${device_zone}
+
+        if [ "$COPY_LABELS" = true ]; then
+            # Copy labels
+            copyDiskLabels ${device_name} ${snapshot_name} ${device_zone}
+        fi
+
     done
 
     logTime "End of google-compute-snapshot"
