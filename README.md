@@ -24,7 +24,7 @@ The script has a number of **optional** usage options - for example you can:
 * `cURL` must be installed
 * The VM must have the sufficient gcloud permissions, including "compute" set to "enabled": [	http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399](http://stackoverflow.com/questions/31905966/gcloud-compute-list-networks-error-some-requests-did-not-succeed-insufficie#31928399)
 * The version of gcloud is up to date: `gcloud components update` 
-* You are authenticated with gcloud - normally this happens automatically, but some users get the error "Insufficient Permission" and need to authenticate: `sudo gcloud auth login`
+
 
 ## Installation
 
@@ -37,6 +37,7 @@ wget https://raw.githubusercontent.com/jacksegal/google-compute-snapshot/master/
 chmod +x gcloud-snapshot.sh
 sudo mkdir -p /opt/google-compute-snapshot
 sudo mv gcloud-snapshot.sh /opt/google-compute-snapshot/
+sudo gcloud auth login
 ```
 
 **To manually test the script:**
@@ -48,10 +49,10 @@ sudo /opt/google-compute-snapshot/gcloud-snapshot.sh
 
 **Setup CRON**: You should setup a cron job in order to schedule a daily backup. Example cron for Debian based Linux:
 ```
-0 5 * * * root /opt/google-compute-snapshot/gcloud-snapshot.sh > /dev/null 2>&1
+0 5 * * * sudo -u root /opt/google-compute-snapshot/gcloud-snapshot.sh > /dev/null 2>&1
 ```
 
-If you'd like to save the output of the script to a log, see [Saving output to Log]((#saving-output-to-log))
+If you'd like to save the output of the script to a log, see [Saving output to Log](#saving-output-to-log)
 
 ## Usage Options
 
@@ -72,9 +73,27 @@ Options:
           Default if not set: 'gcs' [OPTIONAL]
     -a    Service Account to use. 
           Blank if not set [OPTIONAL]
+    -j    Project ID to use.
+          Blank if not set [OPTIONAL]
     -n    Dry run: causes script to print debug variables and doesn't execute any 
           create / delete commands [OPTIONAL]
 ```
+
+## Docker Support
+
+This project has a `Dockerfile` and can therefore be run as a container in a VM, or in a Kubernetes cluster.
+In this context, it will be run with the `-r` option to back up all disks the container has access to. The
+intended usage is to run the container periodically as a Kubernetes cron task.
+
+However it is also possible to set the environment variables `DAEMON` which will make the container run
+continually and take snapshots at intervals. By default the interval is 21600 seconds (6 hours) but can
+be overridden by setting the environment variable `SLEEP`.
+
+You set environment variable `FILTER` to set a filter condition as documented in
+[Matching on specific disks](#matching-on-specific-disks). Otherwise all disks are snapshotted.
+
+At the time of writing, this image is available on [Docker Hub](https://hub.docker.com/r/jacksegal/google-compute-snapshot/)
+as `jacksegal/google-compute-snapshot`.
 
 ## Usage Examples
 
@@ -153,6 +172,20 @@ By default snapshots are created with the default gcloud service account. To use
 For example:
 
     ./gcloud-snapshot.sh -a "my-service-account@test9q.iam.gserviceaccount.com"
+
+### Project ID
+By default snapshots are created with the default gcloud project id. To use a custom project id use the -j flag:
+
+    Usage: ./gcloud-snapshot.sh [-j <project_id>]
+    
+    Options:
+    
+       -j  Project ID to use.
+           Blank if not set [OPTIONAL]
+
+For example:
+
+    ./gcloud-snapshot.sh -j "my-test-project"
 
 ### Dry Run
 The script can be run in dry run mode, which doesn't execute any create / delete commands, and prints out debug information.
