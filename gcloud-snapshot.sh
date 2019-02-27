@@ -178,7 +178,7 @@ getInstanceName()
 getDeviceList()
 {
     # echo -e "$(gcloud $OPT_INSTANCE_SERVICE_ACCOUNT compute disks list --filter "users~instances/$1\$ $FILTER_CLAUSE" --format='value(name)')"
-    
+
     local filter=""
 
     # if using remote instances (-r), then no name filter is required
@@ -253,11 +253,11 @@ createSnapshot()
 
 copyDiskLabels()
 {
-  labels=$(gcloud $OPT_ACCOUNT compute disks describe $1 --zone $3 --format='value[delimiter=","](labels)')
+  labels=$(gcloud $OPT_ACCOUNT compute disks describe $1 --zone $3 --format='value[delimiter=","](labels)' ${OPT_PROJECT})
   if [ "$DRY_RUN" = true ]; then
-      printCmd "gcloud $OPT_ACCOUNT compute snapshots add-labels $2 --labels=$labels"
+      printCmd "gcloud $OPT_ACCOUNT compute snapshots add-labels $2 --labels=$labels ${OPT_PROJECT}"
   else
-      $(gcloud $OPT_ACCOUNT compute snapshots add-labels $2 --labels=$labels)
+      $(gcloud $OPT_ACCOUNT compute snapshots add-labels $2 --labels=$labels ${OPT_PROJECT})
   fi
 }
 
@@ -396,7 +396,7 @@ main()
 
         # build snapshot name
         local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
-        
+
         if [ "$COPY_LABELS" = true ]; then
             # Copy labels
             copyDiskLabels ${device_name} ${snapshot_name} ${device_zone}
