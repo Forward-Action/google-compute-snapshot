@@ -68,6 +68,7 @@ Options:
     -r    Backup remote instances - takes snapshots of all disks calling instance has
           access to [OPTIONAL].
     -f    gcloud filter expression to query disk selection [OPTIONAL]
+    -c    Copy disk labels to snapshot labels [OPTIONAL]
     -p    Prefix to be used for naming snapshots.
           Max character length: 20
           Default if not set: 'gcs' [OPTIONAL]
@@ -141,6 +142,15 @@ Using Labels: You could add a label of `auto_snapshot=true` to all disks that yo
 Backup specific zone: If you wanted to only backup disks in a specific zone you could run:
 
     ./gcloud-compute-snapshot.sh -f "zone: us-central1-c"
+
+### Copy Disk Labels to Snapshots
+Disks can have labels, but snapshots don't automatically get the same labels. To copy labels from source disk to the snapshots use the -c flag. This can be useful if you wish to filter snapshots based on the original disks labels:
+
+    Usage: ./gcloud-snapshot.sh [-c]
+
+    Options:
+
+       -c  Copy disk labels to snapshot labels [OPTIONAL]
 
 ### Snapshot prefix
 By default snapshots are created with a prefix of `gcs`. To give a custom prefix use the -p flag:

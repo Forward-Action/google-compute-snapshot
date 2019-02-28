@@ -27,7 +27,7 @@ usage() {
     echo -e "    -r    Backup remote instances - takes snapshots of all disks calling instance has"
     echo -e "          access to [OPTIONAL]."
     echo -e "    -f    gcloud filter expression to query disk selection [OPTIONAL]"
-    echo -e "    -c    Copy disk labels to snapshot labels"
+    echo -e "    -c    Copy disk labels to snapshot labels [OPTIONAL]"
     echo -e "    -p    Prefix to be used for naming snapshots."
     echo -e "          Max character length: 20"
     echo -e "          Default if not set: 'gcs' [OPTIONAL]"
