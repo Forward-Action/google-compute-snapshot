@@ -398,7 +398,7 @@ main()
         local snapshot_name=$(createSnapshotName ${PREFIX} ${device_name} ${DATE_TIME})
 
         # delete snapshots for this disk that were created older than DELETION_DATE
-        deleteSnapshots "$PREFIX-.*" "$DELETION_DATE" "${device_id}"
+        deleteSnapshots "^$PREFIX-.*" "$DELETION_DATE" "${device_id}"
 
         # create the snapshot
         createSnapshot ${device_name} ${snapshot_name} ${device_zone}
