@@ -35,6 +35,8 @@ usage() {
     echo -e "          Blank if not set [OPTIONAL]"
     echo -e "    -j    Project ID to use."
     echo -e "          Blank if not set [OPTIONAL]"
+    echo -e "    -l    Snapshot storage location."
+    echo -e "          Uses default storage location if not set [OPTIONAL]"
     echo -e "    -n    Dry run: causes script to print debug variables and doesn't execute any"
     echo -e "          create / delete commands [OPTIONAL]"
     echo -e "\n"
@@ -48,7 +50,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:rf:cp:a:j:n" opt; do
+    while getopts ":d:rf:cp:a:j:l:n" opt; do
         case $opt in
             d)
                 opt_d=${OPTARG}
@@ -70,6 +72,9 @@ setScriptOptions()
                 ;;
             j)
                 opt_j=${OPTARG}
+                ;;
+            l)
+                opt_l=${OPTARG}
                 ;;
             n)
                 opt_n=true
@@ -136,6 +141,13 @@ setScriptOptions()
         COPY_LABELS=$opt_c
     fi
 
+    # Snapshot storage location
+    if [[ -n $opt_l ]]; then
+        OPT_SNAPSHOT_LOCATION="--storage-location $opt_l"
+    else
+        OPT_SNAPSHOT_LOCATION=""
+    fi
+
     # Debug - print variables
     if [ "$DRY_RUN" = true ]; then
         printDebug "OLDER_THAN=${OLDER_THAN}"
@@ -146,6 +158,7 @@ setScriptOptions()
         printDebug "OPT_PROJECT=${OPT_PROJECT}"
         printDebug "DRY_RUN=${DRY_RUN}"
         printDebug "COPY_LABELS=${COPY_LABELS}"
+        printDebug "OPT_SNAPSHOT_LOCATION=${OPT_SNAPSHOT_LOCATION}"
     fi
 }
 
@@ -245,9 +258,9 @@ createSnapshotName()
 createSnapshot()
 {
     if [ "$DRY_RUN" = true ]; then
-        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT}"
+        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION}"
     else
-        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT})
+        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION})
     fi
 }
 

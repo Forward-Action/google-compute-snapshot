@@ -86,7 +86,9 @@ Options:
           Blank if not set [OPTIONAL]
     -j    Project ID to use.
           Blank if not set [OPTIONAL]
-    -n    Dry run: causes script to print debug variables and doesn't execute any 
+    -l    Snapshot storage location.
+          Uses default storage location if not set [OPTIONAL]
+    -n    Dry run: causes script to print debug variables and doesn't execute any
           create / delete commands [OPTIONAL]
 ```
 
@@ -206,6 +208,21 @@ By default snapshots are created with the default gcloud project id. To use a cu
 For example:
 
     ./gcloud-snapshot.sh -j "my-test-project"
+
+### Snapshot Storage Location
+The storage location for your snapshots (regional/multi-regional). If you do not specify a storage location, your snapshot is stored in the multi-region that is geographically closest to the location of your persistent disk. (https://cloud.google.com/compute/docs/disks/create-snapshots#default_location) This may incur network costs
+To use a custom storage location use the -l flag:
+
+        Usage: ./gcloud-snapshot.sh [-l <storage_location>]
+
+        Options:
+
+           -l  Snapshot storage location.
+               Uses default storage location if not set [OPTIONAL]
+
+    For example:
+
+        ./gcloud-snapshot.sh -l "asia-east1"
 
 ### Dry Run
 The script can be run in dry run mode, which doesn't execute any create / delete commands, and prints out debug information.
