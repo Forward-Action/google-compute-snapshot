@@ -27,6 +27,7 @@ usage() {
     echo -e "    -r    Backup remote instances - takes snapshots of all disks calling instance has"
     echo -e "          access to [OPTIONAL]."
     echo -e "    -f    gcloud filter expression to query disk selection [OPTIONAL]"
+    echo -e "    -g    Guest Flush (VSS only for Windows VMs) [OPTIONAL]"
     echo -e "    -c    Copy disk labels to snapshot labels [OPTIONAL]"
     echo -e "    -p    Prefix to be used for naming snapshots."
     echo -e "          Max character length: 20"
@@ -50,7 +51,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:rf:cp:a:j:l:n" opt; do
+    while getopts ":d:rf:gcp:a:j:l:n" opt; do
         case $opt in
             d)
                 opt_d=${OPTARG}
@@ -60,6 +61,9 @@ setScriptOptions()
                 ;;
             f)
                 opt_f=${OPTARG}
+                ;;
+            g)
+                opt_g=true
                 ;;
             c)
                 opt_c=true
@@ -139,6 +143,13 @@ setScriptOptions()
     # Copy Disk Labels to Snapshots
     if [[ -n $opt_c ]]; then
         COPY_LABELS=$opt_c
+    fi
+
+    # Guest Flush (VSS for Windows)
+    if [[ -n $opt_c ]]; then
+        OPT_GUEST_FLUSH="--guest-flush"
+    else
+        OPT_GUEST_FLUSH=""
     fi
 
     # Snapshot storage location
@@ -258,9 +269,9 @@ createSnapshotName()
 createSnapshot()
 {
     if [ "$DRY_RUN" = true ]; then
-        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION}"
+        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH}"
     else
-        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION})
+        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH})
     fi
 }
 

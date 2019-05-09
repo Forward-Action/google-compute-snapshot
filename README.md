@@ -78,6 +78,7 @@ Options:
     -r    Backup remote instances - takes snapshots of all disks calling instance has
           access to [OPTIONAL].
     -f    gcloud filter expression to query disk selection [OPTIONAL]
+    -g    Guest Flush (VSS only for Windows VMs) [OPTIONAL]
     -c    Copy disk labels to snapshot labels [OPTIONAL]
     -p    Prefix to be used for naming snapshots.
           Max character length: 20
@@ -154,6 +155,18 @@ Using Labels: You could add a label of `auto_snapshot=true` to all disks that yo
 Backup specific zone: If you wanted to only backup disks in a specific zone you could run:
 
     ./gcloud-compute-snapshot.sh -f "zone: us-central1-c"
+
+### Guest Flush (VSS for Windows)
+Google supports Guest Flush (Volume Shadow Copy quiesce) for Windows Instances's. See [Googles Documentation](https://cloud.google.com/compute/docs/instances/windows/creating-windows-persistent-disk-snapshot#create-snapshot) for limitations. It's recommended that it's only used for secondary data disks, and not for boot volumes.
+
+It will only work with a Windows Instance, and will not work with Linux instances. If you attempt it on an instance that doesn't support guest flush, the snapshot WILL fail.
+
+    Usage: ./gcloud-snapshot.sh [-g]
+
+    Options:
+
+       -g  Guest Flush (VSS only for Windows VMs) [OPTIONAL]
+
 
 ### Copy Disk Labels to Snapshots
 Disks can have labels, but snapshots don't automatically get the same labels. To copy labels from source disk to the snapshots use the -c flag. This can be useful if you wish to filter snapshots based on the original disks labels:
