@@ -14,13 +14,12 @@ export PATH=$PATH:/usr/local/bin/:/usr/bin
 ##                           ##
 ###############################
 
-
 #
 # DOCUMENT ARGUMENTS
 #
 
 usage() {
-    echo -e "\nUsage: $0 [-d <days>] [-r <remote_instances>] [-f <gcloud_filter_expression>] [-p <prefix>] [-a <service_account>] [-n <dry_run>] [-j <project_id>]" 1>&2
+    echo -e "\nUsage: $0 [-d <days>] [-r <remote_instances>] [-f <gcloud_filter_expression>] [-p <prefix>] [-a <service_account>] [-n <dry_run>] [-j <project_id>] [-t <additional_labels>]" 1>&2
     echo -e "\nOptions:\n"
     echo -e "    -d    Number of days to keep snapshots.  Snapshots older than this number deleted."
     echo -e "          Default if not set: 7 [OPTIONAL]"
@@ -40,6 +39,8 @@ usage() {
     echo -e "          Uses default storage location if not set [OPTIONAL]"
     echo -e "    -n    Dry run: causes script to print debug variables and doesn't execute any"
     echo -e "          create / delete commands [OPTIONAL]"
+    echo -e "    -t    Additional labels to add to the created snapshots"
+    echo -e "          labels should be formatted as \"label1=value1,label2=value2\""
     echo -e "\n"
     exit 1
 }
@@ -51,7 +52,7 @@ usage() {
 
 setScriptOptions()
 {
-    while getopts ":d:rf:gcp:a:j:l:n" opt; do
+    while getopts ":d:rf:gcp:a:j:l:nt:" opt; do
         case $opt in
             d)
                 opt_d=${OPTARG}
@@ -82,6 +83,9 @@ setScriptOptions()
                 ;;
             n)
                 opt_n=true
+                ;;
+            t)
+                opt_t=${OPTARG}
                 ;;
             *)
                 usage
@@ -159,6 +163,13 @@ setScriptOptions()
         OPT_SNAPSHOT_LOCATION=""
     fi
 
+    # Additional labels
+    if [[ -n $opt_t ]]; then
+        ADDITIONAL_LABELS="--labels $opt_t"
+    else
+        ADDITIONAL_LABELS=""
+    fi
+
     # Debug - print variables
     if [ "$DRY_RUN" = true ]; then
         printDebug "OLDER_THAN=${OLDER_THAN}"
@@ -170,6 +181,7 @@ setScriptOptions()
         printDebug "DRY_RUN=${DRY_RUN}"
         printDebug "COPY_LABELS=${COPY_LABELS}"
         printDebug "OPT_SNAPSHOT_LOCATION=${OPT_SNAPSHOT_LOCATION}"
+	printDebug "ADDITIONAL_LABELS=${ADDITIONAL_LABELS}"
     fi
 }
 
@@ -269,9 +281,9 @@ createSnapshotName()
 createSnapshot()
 {
     if [ "$DRY_RUN" = true ]; then
-        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH}"
+        printCmd "gcloud ${OPT_ACCOUNT} compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH} ${ADDITIONAL_LABELS}"
     else
-        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH})
+        $(gcloud $OPT_ACCOUNT compute disks snapshot $1 --snapshot-names $2 --zone $3 ${OPT_PROJECT} ${OPT_SNAPSHOT_LOCATION} ${OPT_GUEST_FLUSH} ${ADDITIONAL_LABELS})
     fi
 }
 
