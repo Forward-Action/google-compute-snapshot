@@ -146,7 +146,7 @@ setScriptOptions()
     fi
 
     # Guest Flush (VSS for Windows)
-    if [[ -n $opt_c ]]; then
+    if [[ -n $opt_g ]]; then
         OPT_GUEST_FLUSH="--guest-flush"
     else
         OPT_GUEST_FLUSH=""
